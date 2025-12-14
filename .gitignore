@@ -1,0 +1,22 @@
+# Build artifacts
+/target/
+debug/
+release/
+
+# Cargo lock (for binaries, this is a library-like crate)
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rust
+**/*.rs.bk
+*.pdb
