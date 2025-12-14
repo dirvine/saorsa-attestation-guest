@@ -6,7 +6,7 @@
 //! SP1 zkVM Guest Program for Entangled Attestation
 //!
 //! This program runs inside the SP1 zkVM and proves correct derivation of an
-//! EntangledId without revealing private inputs (the full ML-DSA-65 public key
+//! `EntangledId` without revealing private inputs (the full ML-DSA-65 public key
 //! and derivation nonce).
 //!
 //! ## Security Properties
@@ -45,7 +45,7 @@ pub struct AttestationWitness {
     /// BLAKE3 hash of the binary this identity is bound to.
     pub binary_hash: [u8; 32],
 
-    /// Nonce used in EntangledId derivation.
+    /// Nonce used in `EntangledId` derivation.
     /// Provides uniqueness for each derivation.
     pub nonce: u64,
 
@@ -63,7 +63,7 @@ pub struct AttestationWitness {
 /// These values are visible to verifiers and cryptographically bound to the proof.
 #[derive(Serialize)]
 pub struct AttestationPublicOutputs {
-    /// The derived EntangledId: `BLAKE3(PK || binary_hash || nonce)`
+    /// The derived `EntangledId`: `BLAKE3(PK || binary_hash || nonce)`
     pub entangled_id: [u8; 32],
 
     /// Hash of the binary this identity is bound to.
@@ -82,17 +82,25 @@ pub struct AttestationPublicOutputs {
 ///
 /// This function:
 /// 1. Reads the private witness from the prover
-/// 2. Derives the EntangledId using saorsa-logic
+/// 2. Derives the `EntangledId` using saorsa-logic
 /// 3. Computes the public key hash
 /// 4. Optionally verifies the binary allowlist
 /// 5. Commits the public outputs to the proof
+///
+/// # Panics
+///
+/// Panics if `allowed_binaries` is non-empty and `binary_hash` is not in the
+/// allowlist. In zkVM context, panics invalidate the proof, enforcing that only
+/// authorized binaries can produce valid proofs.
+#[allow(clippy::panic)] // panic! is the correct way to fail a zkVM proof constraint
 pub fn main() {
     // Step 1: Read private witness from prover
     let witness: AttestationWitness = sp1_zkvm::io::read();
 
     // Step 2: Derive EntangledId using the same logic as saorsa-core
     // This is the core computation being proven
-    let entangled_id = derive_entangled_id(&witness.public_key, &witness.binary_hash, witness.nonce);
+    let entangled_id =
+        derive_entangled_id(&witness.public_key, &witness.binary_hash, witness.nonce);
 
     // Step 3: Compute public key hash
     // This commits to the key without revealing the full 1952 bytes
@@ -100,14 +108,11 @@ pub fn main() {
 
     // Step 4: Verify binary allowlist if provided
     // If the allowlist is non-empty, the binary must be in it
-    if !witness.allowed_binaries.is_empty() {
-        match verify_binary_allowlist(&witness.binary_hash, &witness.allowed_binaries) {
-            Ok(()) => {}
-            Err(_) => {
-                // In zkVM, failing a constraint causes the proof to be invalid
-                panic!("binary not in allowlist");
-            }
-        }
+    if !witness.allowed_binaries.is_empty()
+        && verify_binary_allowlist(&witness.binary_hash, &witness.allowed_binaries).is_err()
+    {
+        // In zkVM, failing a constraint causes the proof to be invalid
+        panic!("binary not in allowlist");
     }
 
     // Step 5: Commit public outputs
@@ -122,7 +127,7 @@ pub fn main() {
     sp1_zkvm::io::commit(&outputs);
 }
 
-/// BLAKE3 hash helper (no_std compatible).
+/// BLAKE3 hash helper (`no_std` compatible).
 ///
 /// Computes a 32-byte BLAKE3 hash of the input data.
 #[inline]
